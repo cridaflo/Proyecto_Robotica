@@ -10,26 +10,39 @@ from std_msgs.msg import Int32
 
 # Obstacle[] obstaclesc
 password = -1
+estado  = 0
+req_estate = 0
 
 def endService():
-    global password
-    req_estate = 0
-    while req_estate == 0:
-        if password >=0:
-            end_service = rospy.ServiceProxy('end_service', EndService)
-            end = end_service(password)
-            req_estate = end.correct
-            print(req_estate)
-    return req_estate
+    global password, req_estate
+    print('estoy adivinando', password)
+    if password >=0:
+        end_service = rospy.ServiceProxy('end_service', EndService)
+        end = end_service(password)
+        req_estate = end.correct
+
 
 def passwordCallback(msg):
     global password
     password = msg.data
 
+def estadoCallback(msg):
+    global estado
+    estado = msg.data
+
 def finale():
+    global req_estate
     rospy.init_node('master_end', anonymous=True)
     rospy.Subscriber('password_guess', Int32, passwordCallback)
-    end = endService()
+    rospy.Subscriber('el_estado', Int32, estadoCallback)
+    pub6 = rospy.Publisher('el_estado',Int32, queue_size = 2)
+    while not rospy.is_shutdown():
+        if estado == 3:
+            endService()
+            if req_estate!=0:
+                pub6.publish(4)
+                break
+     
     rospy.spin()
 
 

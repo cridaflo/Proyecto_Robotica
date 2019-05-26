@@ -5,7 +5,7 @@ import sys
 import threading
 from master_msgs_iele3338.msg import Obstacle, Covariance
 from master_msgs_iele3338.srv import AckService, StartService,StartServiceResponse
-from std_msgs.msg import Float64, Bool
+from std_msgs.msg import Float64, Bool, Int32
 from std_msgs.msg import Float32MultiArray, Float32
 from geometry_msgs.msg import Twist, Pose
 import numpy as np
@@ -95,11 +95,15 @@ R = np.array([[np.cos(inicio[2]), np.sin(inicio[2]), 0], [-np.sin(inicio[2]), np
 
 
 req_estate = 0
+
+pub6 = None
+estado = 0
+
 pinto = False
 terminoPintar = False
 
 def start_service(msg):
-    global obstacles_x, obstacles_x, n_obs,inicio, destino, x, y, angulo, resp
+    global obstacles_x, obstacles_x, n_obs,inicio, destino, x, y, angulo, resp, pub6
     n_obs = msg.n_obstacles
     obstacles = msg.obstacles
 
@@ -129,7 +133,7 @@ def start_service(msg):
     pintar()
     A_estrella()
     resp = StartServiceResponse()
-    #resp.response = []
+    pub6.publish(2)
     return resp
 
 
@@ -137,7 +141,7 @@ def start_service(msg):
 
 
 def ackService():
-    global req_estate
+    global req_estate, pub6
     #rospy.init_node('master_client_py', anonymous=True)
     grupo = 14
     ipaddr = "157.253.210.30"
@@ -151,6 +155,7 @@ def ackService():
         req_estate = ack.state
         #print(req_estate)
 
+    pub6.publish(1)
     print('preholi')
 
     return req_estate
@@ -167,14 +172,14 @@ def posCallback(msg):
     velDer = vels[1]
 
     dsr =velDer*dt
-    dsr= velIzq*dt
+    dsl= velIzq*dt
 
     ds = (dsr+dsl)/2.0
     dtheta = (dsr-dsl)/l
 
     a_int = angulo+dtheta/2.0
     dx = ds*np.cos(a_int)
-    dy = ds*np.cos(a_int)
+    dy = ds*np.sin(a_int)
     
     Fp = np.array([[1,0,-dy], [0,1,dx], [0,0,1]])
     cos_int = np.cos(a_int)
@@ -186,7 +191,7 @@ def posCallback(msg):
     Fs = np.array([[Fs11, Fs12],[Fs21, Fs22], [1.0/l, -1.0/l]])
 
     M1 = np.dot(cov, np.transpose(Fp))
-    M1 = np.dor(Fp, M1)
+    M1 = np.dot(Fp, M1)
 
     Sigma = np.array([[kr*abs(dsr), 0], [0, kl*abs(dsl)]])
     M2 = np.dot(Sigma, np.transpose(Fs))
@@ -422,7 +427,7 @@ def controlador():
     global destino, terminoPintar
     global kp, ka, kb, eps
     global Empezo, mundo, rate
-    global R, J1, J1i, J2, J1_alt, J2i, check_pos
+    global R, J1, J1i, J2, J1_alt, J2i, check_pos, pub6
 
 
     rospy.init_node('master_client_py', anonymous=True)
@@ -431,12 +436,14 @@ def controlador():
     pub3 = rospy.Publisher('empezar__adivinar', Bool, queue_size=1)
     pub4 = rospy.Publisher('robot_position', Pose, queue_size = 10)
     pub5 = rospy.Publisher('robot_uncertainty', Covariance, queue_size = 10)
+    pub6 = rospy.Publisher('el_estado',Int32, queue_size = 2)
+
     key = 0
     # Se suscribe a los topicos con la informacion del robot
     rospy.Subscriber('motor_vel', Float32MultiArray, posCallback)
     vel_deseada.data = [0, 0]
     try:
-
+        pub6.publish(0)
         Rate = rospy.Rate(rate)  # 10hz
         final = tiempo
         i = 0
@@ -445,21 +452,29 @@ def controlador():
         grupo = 14
         ipaddr = "157.253.210.30"
         ack = ackService()
-        print(ack)
         pose = Pose()
         cova = Covariance()
         
         pose.position.z = 0
         print('holi')
+        entro = False
+        eltiempo = time.time()
         while not rospy.is_shutdown():
-            if calculo:
-                #cleaprint('ahora si a movernos')
+            if calculo and not sefini:
+                if not entro:
+                    print("holi empece a andar")
+                    eltiempo = time.time()
+                    entro = True
+                #-----esto es para probar, borrar depues plis
+                tact = time.time()
+                dif_time = tact-eltiempo
+                #-----------------------------------------
                 dx = x - destinot[0]
                 dy = y - destinot[1]
                 rho = np.sqrt((dx) ** 2 + (dy) ** 2)
                 alpha = - angulo + math.atan2(-dy, -dx)
                 beta = - angulo - alpha
-                if rho > eps:
+                if rho > eps and dif_time<30:
                     v = kp * rho
                     bet2 = np.radians(destinot[2]) + beta
                     if bet2 < np.radians(-180):
@@ -490,7 +505,7 @@ def controlador():
                     vel_deseada.data[0] = fi[0]
                     vel_deseada.data[1] = fi[1]
 
-                elif i < len(ruta):
+                elif i < len(ruta)and dif_time<30:
                     punto = ruta[i]
                     punto2 = cartesianas(punto)
                     puntoa = cartesianas((destinot[0], destinot[1]))
@@ -511,6 +526,7 @@ def controlador():
 
                 else:
                     print(np.radians(destinot[2]) + beta, np.degrees(angulo))
+                    pub6.publish(3)
                     sefini = True
                     vel_deseada.data = [0, 0]
             

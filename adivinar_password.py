@@ -20,7 +20,7 @@ def passwordCallback(msg):
 def adivinar():
     global adivinar, password
     rospy.init_node('adivinador', anonymous=True)
-    rospy.Subscriber('empezar__adivinar', Bool, passwordCallback)
+    rospy.Subscriber('empezar_adivinar', Bool, passwordCallback)
     pub = rospy.Publisher('password_guess', Int32, queue_size=10)
     rate = rospy.Rate(10)
     while not rospy.is_shutdown():
