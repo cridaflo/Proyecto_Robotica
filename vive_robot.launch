@@ -1,0 +1,10 @@
+<!-- Starts up everything needed to run the example listener/talker Python nodes. -->
+<launch>
+  <!-- node name="master_node" pkg ="master_package_iele3338" type = "master_node"/ --> 
+  <node name="master_client" pkg="master_package_iele3338" type="master_client.py" />
+  <node name="acopla_vel" pkg="master_package_iele3338" type="acopla_vel.py" />
+  <node name="nodo_esatdo" pkg="master_package_iele3338" type="nodo_estado.py" />
+  <node name="nodo_fin" pkg="master_package_iele3338" type="nodo_fin.py" />
+  <node name="adivinar_password" pkg="master_package_iele3338" type="adivinar_password.py" />
+
+</launch>
