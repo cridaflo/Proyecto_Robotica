@@ -7,10 +7,23 @@ import rospy
 import roslib
 import sys, time
 
-# carga el clasificador
+im =  cv2.imread("photo_1.jpg")
 clf = joblib.load("clasificador.pkl")
-im =  cv2.imread("foto_1.jpg")
+rta = ''
 empezar = False
+
+def fotoCallBack(msg):#CallBack del topico que toma la foto
+    global empezar
+    empezar = msg.data
+
+def identify():#identifica la foto de la camara
+    global im
+    global clf
+
+#carga el clasificador
+    clf = joblib.load("clasificador.pkl")
+    im =  cv2.imread("photo_1.jpg")
+    empezar = False
 # Convert to Grayscale and apply Gaussian filtering
 im_gray = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)#pasa la imagen a escala de grises
 im_gray = cv2.GaussianBlur(im_gray, (5, 5), 0)#aplica filtro Gauss
@@ -47,17 +60,33 @@ for rect in rects:
     cv2.putText(im, str(int(nbr[0])), (rect[0], rect[1]),cv2.FONT_HERSHEY_DUPLEX, 2, (0, 255, 255), 3)
     nums.append((rect[0], nbr[0]))  #
     nums.sort()  # organiza el array
+    rta =''
 
-rta =''
-for x in nums:
-    rta+=str(x[1])
-print rta
-cv2.imshow("Resulting Image with Rectangular ROIs", im)#Muestra resultado
-cv2.waitKey()
+    for x in nums:
+            rta+=str(x[1])
+    print rta
+
+    cv2.imshow("Resulting Image with Rectangular ROIs", im)#Muestra resultado
 
 
-#if __name__ == '__main__':#ejecuta el main
-#    try:
-#        nodo_Foto()
-#    except rospy.ROSInterruptException:
-#        pass
+def finale():#ROS- link
+    global empezar
+    global rta
+    rospy.init_node('tomaFoto', anonymous=False)#crea nodo RECON
+    rospy.Subscriber('empezar_adivinar', Boolean, fotoCallBack )#se suscribe a empezar_adivinar
+    rospy.Publisher('password_guess', String, queue__size = 10)
+    rate = rospy.Rate(10)# 10 H
+
+    while not rospy.is_shutdown():
+        empzar = True
+        if empezar:
+            tomarFoto()
+            rta = identify()
+            pub.publish(rta)
+            rate.sleep()
+
+if __name__ == '__main__':
+    try:
+        finale()
+    except rospy.ROSInterruptException:
+        pass
